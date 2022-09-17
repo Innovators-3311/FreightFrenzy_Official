@@ -33,6 +33,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CompassSensor;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
@@ -52,26 +53,31 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="Concept: Compass Calibration", group="Concept")
-@Disabled
-public class ConceptCompassCalibration extends LinearOpMode {
+@TeleOp(name="FreightFrenzyConceptCompassCalibration", group="Concept")
+
+public class FreightFrenzyConceptCompassCalibration extends LinearOpMode {
 
     /* Declare OpMode members. */
-    HardwarePushbot     robot   = new HardwarePushbot();   // Use a Pushbot's hardware
     private ElapsedTime runtime = new ElapsedTime();
     CompassSensor       compass;
-
-    final static double     MOTOR_POWER   = 0.2; // scale from 0 to 1
+    public DcMotor leftDriveFront        = null;
+    public DcMotor rightDriveFront       = null;
+    public DcMotor leftDriveBack         = null;
+    public DcMotor rightDriveBack        = null;
+    final static double     MOTOR_POWER   = 0.3;
     static final long       HOLD_TIME_MS  = 3000;
     static final double     CAL_TIME_SEC  = 20;
 
     @Override
     public void runOpMode() {
-
+        leftDriveFront = hardwareMap.get(DcMotor.class, "lf");
+        rightDriveFront = hardwareMap.get(DcMotor.class, "rf");
+        leftDriveBack = hardwareMap.get(DcMotor.class, "lb");
+        rightDriveBack = hardwareMap.get(DcMotor.class, "rb");
         /* Initialize the org.firstinspires.ftc.teamcode.drive system variables.
          * The init() method of the hardware class does all the work here
          */
-        robot.init(hardwareMap);
+//        init(hardwareMap);
 
         // get a reference to our Compass Sensor object.
         compass = hardwareMap.get(CompassSensor.class, "compass");
@@ -93,8 +99,11 @@ public class ConceptCompassCalibration extends LinearOpMode {
         // Start the robot rotating clockwise
         telemetry.addData("Compass", "Calibration mode. Turning the robot...");
         telemetry.update();
-        robot.leftDrive.setPower(MOTOR_POWER);
-        robot.rightDrive.setPower(-MOTOR_POWER);
+        leftDriveFront.setPower(MOTOR_POWER);
+        leftDriveBack.setPower(MOTOR_POWER);
+        rightDriveBack.setPower(MOTOR_POWER);
+        rightDriveFront.setPower(MOTOR_POWER);
+
 
         // run until time expires OR the driver presses STOP;
         runtime.reset();
@@ -103,8 +112,11 @@ public class ConceptCompassCalibration extends LinearOpMode {
         }
 
         // Stop all motors and turn off claibration
-        robot.leftDrive.setPower(0);
-        robot.rightDrive.setPower(0);
+        leftDriveFront.setPower(0);
+        leftDriveBack.setPower(0);
+        rightDriveFront.setPower(0);
+        rightDriveBack.setPower(0);
+
         compass.setMode(CompassSensor.CompassMode.MEASUREMENT_MODE);
         telemetry.addData("Compass", "Returning to measurement mode");
         telemetry.update();

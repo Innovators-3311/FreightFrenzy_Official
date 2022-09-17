@@ -4,6 +4,7 @@ import com.acmerobotics.roadrunner.geometry.Pose2d;
 import com.acmerobotics.roadrunner.geometry.Vector2d;
 import com.acmerobotics.roadrunner.trajectory.Trajectory;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -19,6 +20,7 @@ import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
 
 import org.firstinspires.ftc.teamcode.source.Arm;
 
+@Disabled
 @Autonomous(name = "Warehouse_v1", group = "Warehouse")
 public class Warehouse_v1 extends LinearOpMode {
 
@@ -65,11 +67,11 @@ public class Warehouse_v1 extends LinearOpMode {
     //defining program states
     enum mainState {
         TRAJECTORY_1,   // Head to the duck carousel
-        TRAJECTORY_2,   // Creep forward several inches to position accurately
-        SPIN,           // Spin the duck
-        TRAJECTORY_3,   // Go to the shipping hub
-        TRAJECTORY_4,   // Drive forward slowly a few inches to the hub
         DROP,           // Drop block
+        TRAJECTORY_2,
+        TRAJECTORY_3,   // Go to the shipping hub
+        WAIT_1,
+        TRAJECTORY_4,   // Drive forward slowly a few inches to the hub
         TRAJECTORY_5,   // Park in the storage unit
         IDLE            // Enter IDLE state when complete
     }
@@ -77,6 +79,7 @@ public class Warehouse_v1 extends LinearOpMode {
         TIER_1,
         TIER_2,
         TIER_3,
+        PICKUP_1,
         IDLE
     }
 
@@ -87,7 +90,7 @@ public class Warehouse_v1 extends LinearOpMode {
     armState currentArmState = armState.IDLE;
 
     //defining start pose
-    Pose2d startPose = new Pose2d(-12, -64, Math.toRadians(0));
+    Pose2d startPose = new Pose2d(-12, -64, Math.toRadians(180));
 
     //initializing timer
     ElapsedTime timer = new ElapsedTime();
@@ -130,96 +133,110 @@ public class Warehouse_v1 extends LinearOpMode {
 
         //Initializing our other robot hardware
         SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);
-        Arm arm = new Arm(hardwareMap); //Shoulder starts at 150 degrees, elbow at -20 degrees relative to the shoulder
+        Arm arm = new Arm(hardwareMap); //Shoulder starts at 150 degrees, elbow at 20 degrees relative to the shoulder
         arm.runShoulderTo(60);
         arm.runElbowTo(90);
 
         //Setting initial position estimate
         drive.setPoseEstimate(startPose);
 
-        //Defining trajectories
-        Trajectory trajectory1 = drive.trajectoryBuilder(startPose)
-                .splineTo(new Vector2d(-12, -37), Math.toRadians(10))
+        //Defining trajectories.  Yes, I need to comment but it's 9:45 and I'm going to bed.
+        Trajectory trajectory1_1 = drive.trajectoryBuilder(startPose)
+                .splineTo(new Vector2d(-12, -35), Math.toRadians(-135))
                 .build();
-        Trajectory trajectory2 = drive.trajectoryBuilder(trajectory1.end())
-                .splineTo(new Vector2d(57, -61), Math.toRadians(10))
+        Trajectory trajectory1_2 = drive.trajectoryBuilder(startPose)
+                .splineTo(new Vector2d(-12, -35), Math.toRadians(-135))
                 .build();
-        Trajectory trajectory3 = drive.trajectoryBuilder(trajectory2.end())
-                .lineToLinearHeading(new Pose2d(52, -55, Math.toRadians(-35)))
+        Trajectory trajectory1_3 = drive.trajectoryBuilder(startPose)
+                .splineTo(new Vector2d(-12, -50), Math.toRadians(45))
+                .build();
+        Trajectory trajectory2_1 = drive.trajectoryBuilder(trajectory1_1.end())
+                .splineTo(new Vector2d(-12, -64), Math.toRadians(180))
+                .build();
+        Trajectory trajectory2_2 = drive.trajectoryBuilder(trajectory1_2.end())
+                .splineTo(new Vector2d(-12, -64), Math.toRadians(180))
+                .build();
+        Trajectory trajectory2_3 = drive.trajectoryBuilder(trajectory1_3.end())
+                .splineTo(new Vector2d(-12, -64), Math.toRadians(180))
+                .build();
+        Trajectory trajectory3 = drive.trajectoryBuilder(trajectory2_1.end())
+                .forward(20)
                 .build();
         Trajectory trajectory4 = drive.trajectoryBuilder(trajectory3.end())
-                .back(30)
+                .back(20)
                 .build();
         Trajectory trajectory5 = drive.trajectoryBuilder(trajectory4.end())
-                .lineToLinearHeading(new Pose2d(54, -25, Math.toRadians(90)))
+                .splineTo(new Vector2d(-12, -64), Math.toRadians(45))
+                .build();
+        Trajectory trajectory6 = drive.trajectoryBuilder(trajectory5.end())
+                .splineTo(new Vector2d(-12, -35), Math.toRadians(-135))
                 .build();
         waitForStart();
 
         if (isStopRequested()) return;
 
         currentState = mainState.TRAJECTORY_1;
-        //drive.followTrajectoryAsync(trajectory1);
-
+        switch(Duck) {
+            case 1:
+                drive.followTrajectoryAsync(trajectory1_1);
+                currentArmState = armState.TIER_1;
+            case 2:
+                drive.followTrajectoryAsync(trajectory1_2);
+                currentArmState = armState.TIER_2;
+            case 3:
+                drive.followTrajectoryAsync(trajectory1_3);
+                currentArmState = armState.TIER_3;
+        }
         while (opModeIsActive() && !isStopRequested()) {
             //You can have multiple switch statements running together for multiple state machines
             //in parallel. This is the basic idea for subsystems and commands.
 
             //Essentially defining the flow of the state machine through this switch statement
             switch (currentState) {
-                case TRAJECTORY_1: //driving to the duck carousel
-                    if (!drive.isBusy() && false) {
-                        currentState = mainState.TRAJECTORY_2;
-                        drive.followTrajectoryAsync(trajectory2);
-                    }
-                    break;
-                case TRAJECTORY_2: //going forward a little bit to mash duck wheel against carousel
-                    if (!drive.isBusy()) {
-                        timer.reset();
-                        currentState = mainState.SPIN;
-                    }
-                    break;
-                case SPIN: //kind of obvious
-                    arm.spinner.setPower(1);
-                    if (timer.milliseconds() > 2500) {
-                        arm.spinner.setPower(0);
-                        currentState = mainState.TRAJECTORY_3;
-                        drive.followTrajectoryAsync(trajectory3);
-                    }
-                    break;
-                case TRAJECTORY_3: //turning to go to shipping hub
-                    if (!drive.isBusy()) {
-                        timer.reset();
-                        currentState = mainState.TRAJECTORY_4;
-                        drive.followTrajectoryAsync(trajectory4);
-                    }
-                    break;
-                case TRAJECTORY_4: //going to the shipping hub
-                    if(timer.milliseconds() > 1000) {
-                        switch(Duck) {
-                            case 1:
-                                currentArmState = armState.TIER_1;
-                                break;
-                            case 2:
-                                currentArmState = armState.TIER_2;
-                                break;
-                            case 3:
-                                currentArmState = armState.TIER_3;
-                                break;
-                        }
-                    }
+                case TRAJECTORY_1: //driving to the shipping hub
                     if (!drive.isBusy() && !arm.shoulderIsBusy && !arm.elbowIsBusy) {
                         timer.reset();
                         currentState = mainState.DROP;
                     }
                     break;
                 case DROP:
-                    arm.openClaw();
-                    arm.retractMagnet();
-                    if(timer.milliseconds() > 1000) {
-                        currentState = mainState.TRAJECTORY_5;
-                        drive.followTrajectoryAsync(trajectory5);
+                    //arm.runClaw();
+                    //arm.retractMagnet();
+                    if(timer.milliseconds() > 2000) {
+                        switch(Duck) {
+                            case 1:
+                                drive.followTrajectoryAsync(trajectory2_1);
+                            case 2:
+                                drive.followTrajectoryAsync(trajectory2_2);
+                            case 3:
+                                drive.followTrajectoryAsync(trajectory2_3);
+                        }
                     }
-                case TRAJECTORY_5: //parking in storage unit
+                case TRAJECTORY_2: //going back against wall
+                    if (!drive.isBusy()) {
+                        currentState = mainState.TRAJECTORY_3;
+                        currentArmState = armState.PICKUP_1;
+                        drive.followTrajectoryAsync(trajectory3);
+                    }
+                    break;
+                case TRAJECTORY_3: //going to pick up freight from the warehouse
+                    if (!drive.isBusy() && !arm.shoulderIsBusy && !arm.elbowIsBusy) {
+                        timer.reset();
+                        currentState = mainState.TRAJECTORY_4;
+                        drive.followTrajectoryAsync(trajectory4);
+                    }
+                    break;
+                case WAIT_1:
+                    if(timer.milliseconds() > 250) {
+                        currentState = mainState.TRAJECTORY_4;
+                        currentArmState = armState.TIER_3;
+                    }
+                case TRAJECTORY_4: //positioning to go to shipping hub
+                    if (!drive.isBusy()) {
+                        currentState = mainState.TRAJECTORY_5;
+                    }
+                    break;
+                case TRAJECTORY_5: //placing freight on top tier
                     if (!drive.isBusy()) {
                         currentState = mainState.IDLE;
                     }
@@ -231,19 +248,23 @@ public class Warehouse_v1 extends LinearOpMode {
 
             switch(currentArmState) {
                 case TIER_1:
-                    arm.runShoulderTo(40);
-                    arm.runElbowTo(60);
-                    currentArmState = armState.IDLE;
+                    arm.runShoulderTo(153);
+                    arm.runElbowTo(270);
+                    currentArmState = Warehouse_v1.armState.IDLE;
                     break;
                 case TIER_2:
-                    arm.runShoulderTo(50);
-                    arm.runElbowTo(60);
-                    currentArmState = armState.IDLE;
+                    arm.runShoulderTo(120);
+                    arm.runElbowTo(285);
+                    currentArmState = Warehouse_v1.armState.IDLE;
                     break;
                 case TIER_3:
-                    arm.runShoulderTo(60);
-                    arm.runElbowTo(60);
-                    currentArmState = armState.IDLE;
+                    arm.runShoulderTo(50);
+                    arm.runElbowTo(165);
+                    currentArmState = Warehouse_v1.armState.IDLE;
+                    break;
+                case PICKUP_1:
+                    arm.runShoulderTo(-10);
+                    arm.runElbowTo(190);
                     break;
                 case IDLE:
                     break;
@@ -280,7 +301,7 @@ public class Warehouse_v1 extends LinearOpMode {
 
         // Set the active camera to Webcam 1.
         switchableCamera = (SwitchableCamera) vuforia.getCamera();
-        switchableCamera.setActiveCamera(webcam1);
+        switchableCamera.setActiveCamera(webcam2);
     }
 
     /**

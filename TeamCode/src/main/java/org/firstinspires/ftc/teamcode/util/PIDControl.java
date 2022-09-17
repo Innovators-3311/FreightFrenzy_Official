@@ -18,10 +18,12 @@ public class PIDControl {
     public double p;
     public double i;
     public double d;
+    public double chillFactor = 1;
 
     private double lastError = 0;
     private double integratedError = 0.0;
     private double averagedDerivative = 0.0;
+    public double pChill = 1;
 
     /**
      * This PID Controller drives a motor using PID control as specified.  The function is
@@ -78,27 +80,33 @@ public class PIDControl {
      */
     public void update(double feedForward) {
         // Calculate how long since the last update and reset the timer.
-        double timestep = period.seconds();
+        double timeStep = period.seconds();
         period.reset();
 
         // Store thisError because we'll use it several times.
         double thisError = angleError();
         // Store thisDerivative because it makes the later equations easier to understand
-        double thisDerivative = (thisError - lastError) / timestep;
+        double thisDerivative = (thisError - lastError) / timeStep;
 
         // Only start integrating when we get close so large moves don't over-weight the error.
         if (Math.abs(thisError) < 5) {
             // Use weighted averaging to smooth out the derivative and integral terms.
-            integratedError = integratedError + thisError * timestep;
+            integratedError = integratedError + thisError * timeStep;
         } else {
-            integratedError = thisError * timestep;
+            integratedError = thisError * timeStep;
         }
         averagedDerivative = thisDerivative * alpha + averagedDerivative * (1 - alpha);
 
         lastError = thisError;
 
-        double powerCalc = p * angleError() + i * integratedError + d * averagedDerivative + feedForward;
-        motor.setPower( clamp(powerCalc, -maxPower, maxPower) );
+        double powerCalc = p * pChill * angleError() + i * integratedError + d * averagedDerivative + feedForward;
+
+        /** Calculations for our custom PID control **/
+
+
+
+
+        motor.setPower( clamp(powerCalc, -maxPower * chillFactor, maxPower * chillFactor) );
     }
 
     /**
@@ -184,3 +192,4 @@ public class PIDControl {
     }
 
 }
+/**yaeoaeaoeoeaeoaeoaeoaoeaeoeet*/

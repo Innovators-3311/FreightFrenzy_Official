@@ -1,21 +1,30 @@
 package org.firstinspires.ftc.teamcode;
 
+
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CompassSensor;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
-@TeleOp(name = "TeleOpFreightFrenzyPID", group = "3311")
-public class TeleOpFreightFrenzyPID extends TeleOpFreightFrenzy {
+@TeleOp(name = "IMUTeleOpFreightFrenzy", group = "3311")
+public class IMUTeleOpFrightFrenzy extends TeleOpFreightFrenzy {
     // Arm setup
     public boolean PIDEnabled = true;
     protected boolean gamepadInput = false;
 
     // These values affect joystick sensitivity of the arm.
-    public double ELBOW_MANUAL_FACTOR = 3.0;
+    public double onward                 = 0;
+    public double ELBOW_MANUAL_FACTOR    = 3.0;
     public double SHOULDER_MANUAL_FACTOR = 3.0;
-    public boolean armLevelDebounceUp = false;
-    public boolean armLevelDebounceDown = false;
-    public double shoulderTargetDegrees = 0.0;
+    public boolean armLevelDebounceUp    = false;
+    public boolean armLevelDebounceDown  = false;
+    public double shoulderTargetDegrees  = 0.0;
+    final static double     MOTOR_POWER  = 1;
+    static final long       HOLD_TIME_MS = 3000;
+    static final double     CAL_TIME_SEC = 20;
+    private CompassSensor compass = null;
+    private ElapsedTime runtime = new ElapsedTime();
 
     // This is a Java Array. It's stored as (shoulder, elbow) values for each position.
     public double[][] ARM_POSITIONS = {
@@ -39,6 +48,7 @@ public class TeleOpFreightFrenzyPID extends TeleOpFreightFrenzy {
     public void init() {
         super.init();
         this.arm.init(hardwareMap);
+        compass = hardwareMap.get(CompassSensor.class,"compass");
 
     }
 
@@ -101,10 +111,6 @@ public class TeleOpFreightFrenzyPID extends TeleOpFreightFrenzy {
         telemetry.addData("elbow angle target:", arm.getElbowTargetAngle());
 //        telemetry.addData("is busy?", arm.isBusy());
         telemetry.addData("Arm Level", armLevel);
-        telemetry.addData("blue", colorSensor2.blue());
-        telemetry.addData("green", colorSensor2.green());
-        telemetry.addData("red", colorSensor2.red());
-        colorSensor2.enableLed(false);
 
         arm.shoulderPID.chillFactor = -0.75 * Math.max(gamepad2.left_trigger, gamepad2.right_trigger) + 1;
         arm.elbowPID.chillFactor = -0.9 * Math.max(gamepad2.left_trigger, gamepad2.right_trigger) + 1;
@@ -118,6 +124,15 @@ public class TeleOpFreightFrenzyPID extends TeleOpFreightFrenzy {
             arm.elbow.setPower(0);
         }
     }
+    public void handleCompass() {
+            if(gamepad1.a && gamepad1.y){
+                onward = compass.getDirection();
+            }
+            driveAngleOffSet = compass.getDirection() - onward;
+
+        }
+
+
 
     public void handleFixedPos() {
         // Setting the arm to pre set positions for the convenience of the drivers
@@ -170,7 +185,7 @@ public class TeleOpFreightFrenzyPID extends TeleOpFreightFrenzy {
             armLevel = armPosLen - 1;
         }
 
-        if (gamepad2.y || gamepad2.b || gamepad2.right_bumper || gamepad2.left_bumper) { //empty commment for pushing
+        if (gamepad2.y || gamepad2.b || gamepad2.right_bumper || gamepad2.left_bumper)   { //empty commment for pushing
             arm.shoulderDriveAbsolute(1, ARM_POSITIONS[armLevel][0]);
             arm.elbowDriveAbsolute(1, ARM_POSITIONS[armLevel][1]);
 
@@ -184,10 +199,25 @@ public class TeleOpFreightFrenzyPID extends TeleOpFreightFrenzy {
         this.handleArm();
         this.handleIntake();
         this.handleSpinner();
-        this.handleDriving();
         this.handleFixedPos();
+        this.handleCompass();
+        this.handleDriveControls();
+
+        double od = this.drive;
+        double os = this.strafe;
+
+        double sin = Math.sin(driveAngleOffSet * (Math.PI / 180.0));
+        double cos = Math.cos(driveAngleOffSet * (Math.PI / 180.0));
+
+        this.drive  = cos * od  + sin * os;
+        this.strafe =  -sin * od + cos * os ;
+
+        this.handleDriveMotors();
 
         // Show the elapsed game time and wheel power.
         telemetry.addData("Status", "Run Time: " + runtime.toString());
+        telemetry.addData("sin", sin);
+        telemetry.addData("cos", cos);
+        telemetry.addData("heading, me mateys", driveAngleOffSet);
     }
 }

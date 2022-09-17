@@ -33,6 +33,10 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.util.DriveDirection;
 
 /**
  * This file contains an example of an iterative (Non-Linear) "OpMode".
@@ -52,12 +56,16 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class TeleOpFreightFrenzy extends OpMode {
     // Declare OpMode members.
     protected final ElapsedTime runtime = new ElapsedTime();
-    public DcMotor leftDriveFront  = null;
-    public DcMotor rightDriveFront = null;
-    public DcMotor leftDriveBack   = null;
-    public DcMotor rightDriveBack  = null;
-    public DcMotor spinner         = null;
-    public double speedFactor = 1.0;
+    public DcMotor leftDriveFront        = null;
+    public DcMotor rightDriveFront       = null;
+    public DcMotor leftDriveBack         = null;
+    public DcMotor rightDriveBack        = null;
+    public DcMotor spinner               = null;
+    public DcMotor intake                = null;
+    public ColorSensor colorSensor2      = null;
+    public DistanceSensor distanceSensor = null;
+    public double speedFactor            = 1.0;
+    public double driveAngleOffSet = 0.0;
     /* Setup a variable for each drive wheel to save power level for telemetry */
     public double leftPowerFront  = 1.0;
     public double rightPowerFront = 1.0;
@@ -67,11 +75,14 @@ public class TeleOpFreightFrenzy extends OpMode {
     public double turn            = 0.0;
     public double strafe          = 0.0;
     public double strafeValue     = 0.0;
+    public double backup          = 0;
+    public int armLevel = 1;
     //Bring in code to setup arm.
     protected Arm2_Control arm = new Arm2_Control();
     // debounce A & X
     protected boolean debounceA = false;
     protected boolean debounceX = false;
+    private boolean distanceSlow= false;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -89,7 +100,9 @@ public class TeleOpFreightFrenzy extends OpMode {
         leftDriveBack = hardwareMap.get(DcMotor.class, "lb");
         rightDriveBack = hardwareMap.get(DcMotor.class, "rb");
         spinner = hardwareMap.get(DcMotor.class, "spinner");
-
+        colorSensor2 = hardwareMap.colorSensor.get("colorSensor3");
+        distanceSensor = hardwareMap.get(DistanceSensor.class, "colorSensor3");
+        intake = hardwareMap.get(DcMotor.class, "intake");
         // Set Motor Direction
         leftDriveFront.setDirection(DcMotor.Direction.FORWARD);
         rightDriveFront.setDirection(DcMotor.Direction.REVERSE);
@@ -128,30 +141,19 @@ public class TeleOpFreightFrenzy extends OpMode {
         runtime.reset();
     }
 
-    protected void handleClaw() {
+    protected void handleIntake() {
         if (gamepad2.a) {
-            if (!debounceA) {
-                // This code only runs once if A is pressed.
-                if (arm.cl.getPosition() < .5) {
-                    arm.cl.setPosition(1);
-                } else {
-                    arm.cl.setPosition(0);
-                }
+            intake.setPower(1);
+        }else{
+            if(gamepad2.x){
+                intake.setPower(-1);
+            }else{
+                intake.setPower(0);
             }
-            debounceA = true;
-        } else {
-            debounceA = false;
         }
 
-
-        if (gamepad2.x) {
-            arm.mag.setPosition(1);
-        } else {
-            arm.mag.setPosition(0);
-        }
     }
-
-
+// Daniel
     protected void handleArm() {
         double elbowPower    = 0.0;
         double shoulderPower = 0.0;
@@ -170,6 +172,14 @@ public class TeleOpFreightFrenzy extends OpMode {
         // Publish Elbow values
         telemetry.addData("elbow Current angle:", arm.getElbowAngle());
         telemetry.addData("elbow angle target:", arm.getElbowTargetAngle());
+        telemetry.addData("distance",distanceSensor.getDistance(DistanceUnit.CM));
+        //if(distanceSensor.getDistance(DistanceUnit.CM) < 2){
+       //     spinner.setPower(1);
+       // }
+        //else spinner.setPower(0);
+
+
+
 
         while (gamepad2.right_stick_button || gamepad2.left_stick_button) {
             arm.emergencyStop();
@@ -185,45 +195,54 @@ public class TeleOpFreightFrenzy extends OpMode {
     }
 
     public void handleSpinner() {
-        // The code below allows you to
-        if (gamepad2.right_bumper) {
-            spinner.setPower(1.5);
-        }
-        if (gamepad2.left_bumper) {
-            spinner.setPower(-1.0);
-        }
-        if (!gamepad2.left_bumper && !gamepad2.right_bumper) {
-            spinner.setPower(0.0);
+//        double spin = distanceSensor.getDistance(DistanceUnit.CM) / 5 - 0.2;
+//        spinner.setPower(spin);
+//        telemetry.addData("distance", spin * 5)
+        if (gamepad1.right_bumper || gamepad1.left_bumper) {
+            if (gamepad1.right_bumper) {
+                spinner.setPower(1);
+            }
+            if (gamepad1.left_bumper) {
+                spinner.setPower(-1);
+            }
+        } else {
+            spinner.setPower(0);
         }
     }
 
     public void handleDriving() {
+        handleDriveControls();
+        handleDriveMotors();
+    }
 
-
+    public void handleDriveControls() {
         // Get the game pad control values for this loop iteration
-        drive = -gamepad1.left_stick_y;
+        drive = -gamepad1.left_stick_y - gamepad1.left_stick_y;
         turn = gamepad1.right_stick_x;
         strafe = 0;
         if (gamepad1.dpad_left)
             strafe = -1;
-        if (gamepad1.dpad_right)
+        else if (gamepad1.dpad_right)
             strafe = 1;
+        else {
+            strafe = gamepad1.left_stick_x;
+        }
+        speedFactor = 1.0 - (gamepad1.left_trigger * .5);
+    }
 
-//send power to wheels
-        speedFactor = (-gamepad1.left_trigger * 0.75) + 1;
-
+    public void handleDriveMotors() {
         leftPowerFront = (drive + turn + strafe) * speedFactor;
         rightPowerFront = (drive - turn - strafe) * speedFactor;
         leftPowerBack = (drive + turn - strafe) * speedFactor;
-        rightPowerBack = (drive - turn + strafe) * speedFactor;
-        //send power to wheels
+        rightPowerBack = (drive - turn +strafe) * speedFactor;
+
         leftDriveFront.setPower(leftPowerFront);
         rightDriveFront.setPower(rightPowerFront);
         leftDriveBack.setPower(leftPowerBack);
         rightDriveBack.setPower(rightPowerBack);
 
         telemetry.addData("Motors", "lf(%.2f), rf(%.2f), lb(%.2f), rb(%.2f)", leftPowerFront, rightPowerFront, leftPowerBack, rightPowerBack);
-        telemetry.addData("Variables", "sf(%.2f)", speedFactor);
+        telemetry.addData("Speed control", speedFactor);
 
     }
 
@@ -231,7 +250,7 @@ public class TeleOpFreightFrenzy extends OpMode {
     @Override
     public void loop() {
         this.handleArm();
-        this.handleClaw();
+        this.handleIntake();
         this.handleSpinner();
         this.handleDriving();
 
@@ -248,4 +267,3 @@ public class TeleOpFreightFrenzy extends OpMode {
     }
 
 }
-//                                                                                                                                                  If you found this then you are a big brain gamer

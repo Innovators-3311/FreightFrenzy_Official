@@ -124,8 +124,8 @@ public class ConceptVuforiaFieldNavigation extends LinearOpMode {
          * If no camera preview is desired, use the parameter-less constructor instead (commented out below).
          */
         int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
-        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
-        // VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters();
+        //VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
+        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters();
 
         parameters.vuforiaLicenseKey = VUFORIA_KEY;
         parameters.cameraDirection   = CAMERA_CHOICE;

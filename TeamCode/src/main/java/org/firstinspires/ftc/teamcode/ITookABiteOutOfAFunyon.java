@@ -52,8 +52,8 @@ import com.qualcomm.robotcore.util.Range;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="Test OpMode_other", group="Linear Opmode")
-public class BasicTeleop extends LinearOpMode {
+@TeleOp(name="outreachFunyon", group="outreachFunyon")
+public class ITookABiteOutOfAFunyon extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -61,12 +61,13 @@ public class BasicTeleop extends LinearOpMode {
     private DcMotor rightDrive = null;
     private DcMotor leftDriveBack = null;
     private DcMotor rightDriveBack = null;
-    private DcMotor mainArm = null;
-    private DcMotor secondaryArm = null;
+//    private DcMotor mainArm = null;
+//    private DcMotor secondaryArm = null;
     private DcMotor spinner = null;
-    private Servo claw = null;
-    private Servo release = null;
-
+    private DcMotor intake = null;
+    private DcMotor treadmill;
+    private Servo trigger = null;
+    private Servo pusherPostion = null;
     double max;
 
     @Override
@@ -81,14 +82,12 @@ public class BasicTeleop extends LinearOpMode {
         rightDrive = hardwareMap.get(DcMotor.class, "rf");
         leftDriveBack  = hardwareMap.get(DcMotor.class, "lb");
         rightDriveBack = hardwareMap.get(DcMotor.class, "rb");
-
-        mainArm = hardwareMap.get(DcMotor.class, "shoulder");
-        secondaryArm = hardwareMap.get(DcMotor.class, "elbow");
+        intake = hardwareMap.get(DcMotor.class,"intake");
+//        mainArm = hardwareMap.get(DcMotor.class, "shoulder");
+//        secondaryArm = hardwareMap.get(DcMotor.class, "elbow");
         spinner = hardwareMap.get(DcMotor.class, "spinner");
-
-        claw  = hardwareMap.get(Servo.class, "claw");
-        release = hardwareMap.get(Servo.class, "mag");
-
+        treadmill = hardwareMap.get(DcMotor.class,"treadmill");
+        trigger = hardwareMap.get(Servo.class, "trigger");
         // Most robots need the motor on one side to be reversed to org.firstinspires.ftc.teamcode.drive forward
         // Reverse the motor that runs backwards when connected directly to the battery
         leftDrive.setDirection(DcMotor.Direction.FORWARD);
@@ -96,13 +95,15 @@ public class BasicTeleop extends LinearOpMode {
         leftDriveBack.setDirection(DcMotor.Direction.FORWARD);
         rightDriveBack.setDirection(DcMotor.Direction.REVERSE);
 
+        trigger.setDirection(Servo.Direction.FORWARD);
         leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftDriveBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftDriveBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        trigger.scaleRange(0,1);
 
-        mainArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        secondaryArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+//        mainArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+//        secondaryArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
@@ -111,14 +112,38 @@ public class BasicTeleop extends LinearOpMode {
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
 
-            // Setup a variable for each org.firstinspires.ftc.teamcode.drive wheel to save power level for telemetry
-            double leftPower;
-            double rightPower;
-            double leftBackPower;
-            double rightBackPower;
 
-            double armPower = gamepad2.left_stick_y;
-            double secondaryArmPower = gamepad2.right_stick_y;
+        if(gamepad1.right_bumper) {
+            intake.setPower(1);
+        }
+        else{
+            intake.setPower(0);
+        }
+            spinner.setPower(-gamepad1.left_trigger);
+            treadmill.setPower(gamepad1.left_trigger);
+            if(gamepad1.left_bumper) {
+                spinner.setPower(1);
+                treadmill.setPower(-1);
+            }
+            else{
+                spinner.setPower(0);
+                treadmill.setPower(0);
+            }
+            if (gamepad1.y)
+            {
+                trigger.setDirection(Servo.Direction.FORWARD);
+                trigger.setPosition(0.25);
+            }
+            else if(gamepad1.b)
+            {
+                trigger.setDirection(Servo.Direction.REVERSE);
+                trigger.setPosition(0);
+            }
+        // Setup a variable for each org.firstinspires.ftc.teamcode.drive wheel to save power level for telemetry
+
+
+//            double armPower = gamepad2.left_stick_y;
+//            double secondaryArmPower = gamepad2.right_stick_y;
 
             // Choose to org.firstinspires.ftc.teamcode.drive using either Tank Mode, or POV Mode
             // Comment out the method that's not used.  The default below is POV.
@@ -126,35 +151,23 @@ public class BasicTeleop extends LinearOpMode {
             // POV Mode uses left stick to go forward, and right stick to turn.
             // - This uses basic math to combine motions and is easier to org.firstinspires.ftc.teamcode.drive straight.
 
+
+
+//            if (Math.abs(armPower) < 0.05) {
+//                armPower = 0;
+//            }
+//            if (Math.abs(secondaryArmPower) < 0.05) {
+//                secondaryArmPower = 0;
+//            }
+            double leftPower;
+            double rightPower;
+            double leftBackPower;
+            double rightBackPower;
+
             double turn = gamepad1.left_stick_x;
             double drive = -gamepad1.left_stick_y;
             double strafe = gamepad1.right_stick_x;
 
-            if (Math.abs(armPower) < 0.05) {
-                armPower = 0;
-            }
-            if (Math.abs(secondaryArmPower) < 0.05) {
-                secondaryArmPower = 0;
-            }
-
-            //claw code
-            if (gamepad2.a) {
-                claw.setPosition(0);
-            }
-            if (gamepad2.b) {
-                claw.setPosition(10);
-            }
-            if (gamepad2.x) {
-                release.setPosition(10);
-            }
-            if (gamepad2.y) {
-                release.setPosition(0);
-            }
-            if (gamepad2.right_bumper) {
-                spinner.setPower(1);
-            } else {
-                spinner.setPower(0);
-            }
 
             leftPower = drive + turn + strafe;
             rightPower = drive - turn - strafe;
@@ -167,23 +180,25 @@ public class BasicTeleop extends LinearOpMode {
                 max = Math.max(Math.abs(rightBackPower), max);
 
                 //divide everything by highest power to keep proper ratios of strafe, org.firstinspires.ftc.teamcode.drive, and turn
-                leftPower /= max;
-                rightPower /= max;
-                leftBackPower /= max;
-                rightBackPower /= max;
+                leftPower /= 0.5;
+                rightPower /= 0.5;
+                leftBackPower /= 0.5;
+                rightBackPower /= 0.5;
             }
 
             // Send calculated power to wheels
-            leftDrive.setPower(leftPower);
-            rightDrive.setPower(rightPower);
-            leftDriveBack.setPower(leftBackPower);
-            rightDriveBack.setPower(rightBackPower);
-            mainArm.setPower(armPower);
-            secondaryArm.setPower(secondaryArmPower);
+            leftDrive.setPower(.25 * leftPower);
+            rightDrive.setPower(.25 * rightPower);
+            leftDriveBack.setPower(.25 * leftBackPower);
+            rightDriveBack.setPower(.25 * rightBackPower);
+//            mainArm.setPower(armPower);
+//            secondaryArm.setPower(secondaryArmPower);
 
             // Show the elapsed game time and wheel power.
             telemetry.addData("Status", "Run Time: " + runtime.toString());
-            telemetry.addData("Motors", "arm1 (%.2f), arm2 (%.2f)", armPower, secondaryArmPower);
+            telemetry.addData("trigger postion", trigger.getPosition());
+            telemetry.addData("trigger controller", trigger.getController());
+//            telemetry.addData("Motors", "arm1 (%.2f), arm2 (%.2f)", armPower, secondaryArmPower);
             telemetry.update();
         }
     }

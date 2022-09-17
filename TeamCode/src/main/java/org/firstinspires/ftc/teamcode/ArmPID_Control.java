@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -13,6 +14,8 @@ public class ArmPID_Control extends Arm2_Control {
 
     public PIDControl shoulderPID = null;
     public PIDControl elbowPID = null;
+    public boolean shoulderInitialized = false;
+    public int armState = 0;
 
     /* local OpMode members. */
     HardwareMap hwMap = null;
@@ -29,8 +32,8 @@ public class ArmPID_Control extends Arm2_Control {
         elbow = hwMap.get(DcMotorEx.class, "elbow");
         shoulder = hwMap.get(DcMotorEx.class, "shoulder");
 
-        shoulderPID = new PIDControl(shoulder, -1e-2, -1e-3, -1e-4);
-        elbowPID = new PIDControl(elbow, -1e-2, -1e-3, -1e-4);
+        shoulderPID = new PIDControl(shoulder,  -1e-1, -1e-3, -2e-5);
+        elbowPID = new PIDControl(elbow, -4e-2, -1e-3, -5e-5);
 
         // Set the direction that the motors will turn
         elbow.setDirection(DcMotor.Direction.FORWARD);
@@ -55,35 +58,34 @@ public class ArmPID_Control extends Arm2_Control {
 
     public void arm_reset(){
         //shoulder
-        if( !armInitalized ){
-            if (!shoulderLimitSwitch.isPressed() && !armInitalized){
-                shoulder.setPower(0.5);
-            }
-            else{
-                shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                elbow.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                shoulderDriveAbsolute(.7, 20);
-                armInitalized = true;
-            }
-        }
-        else{
-            shoulderPID.update(getShoulderGravityVector() * SHOULDER_GRAVITY_FACTOR);
-        }
+        switch (armState) {
+            case 0: // Drive Shoulder to back
+                shoulder.setPower(0.4);
+                elbow.setPower(0.05);
 
-        //elbow
-        if( !armInitalized ){
-            if (!elbowLimitSwitch.isPressed() && !armInitalized){
-                elbow.setPower(-0.5);
-            }
-            else{
-                shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                elbow.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                elbowDriveAbsolute(.7, 20);
+                if (shoulderLimitSwitch.isPressed()) {
+                    shoulder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    armState = 1;
+                }
+                break;
+            case 1: // Drive elbow to init position.
+                elbow.setPower(-0.3);
+                if (elbowLimitSwitch.isPressed()) {
+                    elbow.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    armState = 2;
+                }
+                break;
+            case 2: // Move arm to init position.
+                elbowDriveAbsolute(.7, 6);
+                shoulderDriveAbsolute(.7, 42);
                 armInitalized = true;
-            }
-        }
-        else{
-            elbowPID.update(getShoulderGravityVector() * SHOULDER_GRAVITY_FACTOR);
+                armState = 3;
+                break;
+            case 3: // Continue to update arm.
+                shoulderPID.update(getShoulderGravityVector() * SHOULDER_GRAVITY_FACTOR);
+                elbowPID.update(0.0);
+
+                break;
         }
     }
 
@@ -97,6 +99,7 @@ public class ArmPID_Control extends Arm2_Control {
     public void elbowDriveAbsolute(double speed,
                                    double elbowAngle) {
         elbowPID.setTargetAngle(elbowAngle);
+        elbow.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         elbowPID.maxPower = speed;
     }
 
@@ -110,6 +113,7 @@ public class ArmPID_Control extends Arm2_Control {
     public void shoulderDriveAbsolute(double speed,
                                       double shoulderAngle) {
         shoulderPID.setTargetAngle(shoulderAngle);
+        shoulder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shoulderPID.maxPower = speed;
     }
 
@@ -140,6 +144,26 @@ public class ArmPID_Control extends Arm2_Control {
      */
     @Override
     public void update() {
+
+      //  Graph:https://www.desmos.com/calculator/k8serz0f8g
+        double chill = Math.pow((shoulderPID.getTargetAngle()-100)/190, 2) +.2; // .75 + .5*Math.cos(2*(shoulderPID.getTargetAngle())*(Math.PI/180));
+        chill = PIDControl.clamp(chill, .2, 1);
+        shoulderPID.pChill = chill;
+
+//        if (Math.abs(shoulderPID.getAngle()-90)< 30 &&
+//                Math.abs(shoulderPID.getTargetAngle() - 90) < 30){
+//          shoulderPID.pChill=.2;
+//        }
+//        else {
+//            shoulderPID.pChill = 1;
+//        }
+//        if (Math.abs(elbowPID.getAngle()-100)< 30 &&
+//                Math.abs(elbowPID.getTargetAngle() - 100) < 30){
+//            elbowPID.pChill=.2;
+//        }
+//        else {
+//            elbowPID.pChill = 1;
+//        }
         shoulderPID.update(getShoulderGravityVector() * SHOULDER_GRAVITY_FACTOR);
         elbowPID.update(0);
     }

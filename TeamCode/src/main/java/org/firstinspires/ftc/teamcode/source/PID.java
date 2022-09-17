@@ -12,7 +12,7 @@ public class PID {
     private double D;
 
     private double It = 0;
-    private double dt = 0.1;
+    private double dt = 0.05;
     public double output;
     public double Err;
     private double pErr = NaN;
@@ -28,7 +28,7 @@ public class PID {
 
     public PID() {}
 
-    public void setGains(double kP, double kI, double kD, double minOutput, double maxOutput, double integralErrCap) {
+    public void setCoefficients(double kP, double kI, double kD, double minOutput, double maxOutput, double integralErrCap) {
         this.kP = kP;
         this.kI = kI;
         this.kD = kD;
